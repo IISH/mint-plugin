@@ -17,8 +17,9 @@ public class CounterCLevel extends ExtensionFunctionDefinition {
     private static final Logger LOG = Logger.getLogger(CounterCLevel.class);
     private CounterCLevelCall counterCLevelCall;
 
-    public CounterCLevel(CounterCLevelCall counterCLevelCall){
-        this.counterCLevelCall = counterCLevelCall;
+    public CounterCLevel() {
+        super();
+        this.counterCLevelCall = new CounterCLevelCall();
     }
 
     @Override
