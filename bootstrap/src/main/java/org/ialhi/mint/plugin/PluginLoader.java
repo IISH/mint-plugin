@@ -40,39 +40,28 @@ import java.util.jar.JarFile;
 /**
  * PluginLoader
  * <p/>
- * This class loads and detects the classes defined in a plugin folder list.
+ * This static utility class loads and detects the classes defined in a plugin folder list.
  * It will return a TransformerFactory with extended functions ( if any are found ).
  *
  * @author Lucien van Wouw <lwo@iisg.nl>
  */
 final class PluginLoader {
 
-    protected final Logger log = Logger.getLogger(getClass());
-
+    protected final static Logger log = Logger.getLogger("org.ialhi.mint.plugin.PluginLoader");
     private static List<Class<ExtensionFunctionDefinition>> extensionFunctions = new ArrayList<>();
     private static List<String> xmlnsList = new ArrayList<>();
 
-    public PluginLoader() {
-        String pluginFolder = System.getProperty("plugins", "./plugins");
-        scan(pluginFolder.split(","));
-    }
-
-    public PluginLoader(String pluginFolder) {
-        scan(pluginFolder.split(","));
-    }
-
-    public PluginLoader(String[] pluginFolders) {
-        scan(pluginFolders);
-    }
 
     /**
      * scan
      * <p/>
      * Iterate over the plugin folders and make a list of the classes that extend the desired class.
      */
-    private synchronized void scan(String[] pluginFolders) {
+    private static synchronized void scan() {
 
         if (extensionFunctions.isEmpty()) {
+
+            String[] pluginFolders = System.getProperty("plugins", "./plugins").split(",");
 
             final List<String> jarFiles = new ArrayList<>();
             for (String folder : pluginFolders) {
@@ -110,11 +99,11 @@ final class PluginLoader {
      * @param f        - file handle representing a directory
      * @param jarFiles - List to which we're adding Jar names
      */
-    private void scanDirectory(File f, List<String> jarFiles) {
+    private static void scanDirectory(File f, List<String> jarFiles) {
 
         final File[] children = f.listFiles();
         if (children == null || children.length == 0) {
-            log.info("No plugin detected.");
+            log.info("No plugin detected in " + f.getAbsolutePath());
         } else {
             for (File aChildren : children) {
 
@@ -151,7 +140,7 @@ final class PluginLoader {
      * @throws NoSuchMethodException
      * @throws InvocationTargetException
      */
-    private void loadClass(String pathToJar) throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+    private static void loadClass(String pathToJar) throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
 
         final JarFile jarFile = new JarFile(pathToJar);
         Enumeration<JarEntry> e = jarFile.entries();
@@ -174,13 +163,42 @@ final class PluginLoader {
         }
     }
 
+    /**
+     * register
+     * <p/>
+     * Instantiate the extended function class and register it.
+     *
+     * @param saxonConfig
+     * @param clazz
+     * @throws NoSuchMethodException
+     * @throws IllegalAccessException
+     * @throws InvocationTargetException
+     * @throws InstantiationException
+     */
+    private static void register(Configuration saxonConfig, Class<ExtensionFunctionDefinition> clazz) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        final Constructor<ExtensionFunctionDefinition> constructor = clazz.getConstructor();
+        final ExtensionFunctionDefinition extensionFunctionDefinition = constructor.newInstance();
+        saxonConfig.registerExtensionFunction(extensionFunctionDefinition);
+
+        addPrefix(extensionFunctionDefinition);
+    }
+
+    private static void addPrefix(ExtensionFunctionDefinition extensionFunctionDefinition) {
+        final StructuredQName functionQName = extensionFunctionDefinition.getFunctionQName();
+        final String xmlns = "xmlns:" + functionQName.getPrefix() + "=\"" + functionQName.getURI() + "\"";
+        if (!xmlnsList.contains(xmlns)) {
+            xmlnsList.add(xmlns);
+        }
+    }
 
     /**
      * getTransformerFactory
      *
      * @return The factory with the extended functions.
      */
-    public TransformerFactory getTransformerFactory() {
+    public static TransformerFactory getTransformerFactory() {
+
+        scan();
 
         System.setProperty("javax.xml.parsers.SAXParserFactory", "org.apache.xerces.jaxp.SAXParserFactoryImpl");
         System.setProperty("javax.xml.transform.TransformerFactory", "net.sf.saxon.TransformerFactoryImpl");
@@ -204,45 +222,7 @@ final class PluginLoader {
         return tFactory;
     }
 
-    public List<String> getPrefixNamespace() {
+    public static List<String> getPrefixNamespace() {
         return xmlnsList;
-    }
-
-    /**
-     * register
-     * <p/>
-     * Instantiate the extended function class and register it.
-     *
-     * @param saxonConfig
-     * @param clazz
-     * @throws NoSuchMethodException
-     * @throws IllegalAccessException
-     * @throws InvocationTargetException
-     * @throws InstantiationException
-     */
-    private void register(Configuration saxonConfig, Class<ExtensionFunctionDefinition> clazz) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        final Constructor<ExtensionFunctionDefinition> constructor = clazz.getConstructor();
-        final ExtensionFunctionDefinition extensionFunctionDefinition = constructor.newInstance();
-        saxonConfig.registerExtensionFunction(extensionFunctionDefinition);
-
-        addPrefix(extensionFunctionDefinition);
-    }
-
-    private void addPrefix(ExtensionFunctionDefinition extensionFunctionDefinition) {
-        final StructuredQName functionQName = extensionFunctionDefinition.getFunctionQName();
-        final String xmlns = "xmlns:" + functionQName.getPrefix() + "=\"" + functionQName.getURI() + "\"";
-        if (!xmlnsList.contains(xmlns)) {
-            xmlnsList.add(xmlns);
-        }
-    }
-
-    public static void main(String[] args) throws IOException {
-        assert args.length != 0;
-        final PluginLoader pluginLoader = new PluginLoader(args);
-        TransformerFactory factory = pluginLoader.getTransformerFactory();
-        System.out.println(factory.toString());
-        for ( String xmlns : pluginLoader.getPrefixNamespace() ) {
-            System.out.println(xmlns);
-        }
     }
 }
