@@ -32,7 +32,6 @@ import java.util.Vector;
  * @author papp
  */
 public class DateConversionXMLFilehandler {
-    private static final Logger LOG = Logger.getLogger(DateConversionXMLFilehandler.class);
 
     public void saveDataToFile(Vector data, String xmlFilePath) {
         try {
