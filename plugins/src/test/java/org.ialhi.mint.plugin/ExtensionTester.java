@@ -21,15 +21,14 @@ public class ExtensionTester {
         if(tFactory instanceof TransformerFactoryImpl) {
             TransformerFactoryImpl tFactoryImpl = (TransformerFactoryImpl) tFactory;
             Configuration saxonConfig = tFactoryImpl.getConfiguration();
-            saxonConfig.registerExtensionFunction(new MakeUuid());
             saxonConfig.registerExtensionFunction(new GetQuickPidRequest());
         }
 
-        Source xslt = new StreamSource(new File("src/main/resources/testMintExtensions.xsl"));
+        Source xslt = new StreamSource(new File("src/test/resources/testMintExtensions.xsl"));
         Transformer transformer = tFactory.newTransformer(xslt);
 
-        Source xml = new StreamSource(new File("src/main/resources/testMintExtensionsInput.xml"));
-        transformer.transform(xml, new StreamResult(new File("src/main/resources/testMintExtensionsResults.xml")));
+        Source xml = new StreamSource(new File("src/test/resources/testMintExtensionsInput.xml"));
+        transformer.transform(xml, new StreamResult(new File("src/test/resources/testMintExtensionsResults.xml")));
     }
 
 }

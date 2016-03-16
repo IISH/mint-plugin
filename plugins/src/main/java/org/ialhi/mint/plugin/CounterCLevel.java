@@ -22,6 +22,10 @@ public class CounterCLevel extends ExtensionFunctionDefinition {
         this.counterCLevelCall = new CounterCLevelCall();
     }
 
+    public CounterCLevel(CounterCLevelCall counterCLevelCall){
+        this.counterCLevelCall = counterCLevelCall;
+    }
+
     @Override
     public StructuredQName getFunctionQName() {
         return funcname;

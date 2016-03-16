@@ -19,8 +19,8 @@ import java.io.IOException;
 
 public class GetQuickPidRequest extends ExtensionFunctionDefinition {
     private static final StructuredQName qName =
-            new StructuredQName("",
-                    "http://www.socialhistoryservices.org/",
+            new StructuredQName("ialhi",
+                    "http://www.socialhistoryportal.org/functions",
                     "getQuickPidRequest");
 
     @Override

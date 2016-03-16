@@ -7,9 +7,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.ialhi.mint</groupId>
 	<artifactId>mint-plugin</artifactId>
-	<packaging>jar</packaging>
+	<packaging>pom</packaging>
 	<version>1.0</version>
 	<url>http://maven.apache.org</url>
+
+    <modules>
+        <module>bootstrap</module>
+        <module>plugins</module>
+    </modules>
 
 	<dependencies>
         <dependency>
