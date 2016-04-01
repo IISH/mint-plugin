@@ -2,7 +2,7 @@ package org.ialhi.mint.plugin;
 
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.lib.ExtensionFunctionCall;
-import net.sf.saxon.om.SequenceIterator;
+import net.sf.saxon.om.Sequence;
 import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.value.StringValue;
 
@@ -15,9 +15,10 @@ import net.sf.saxon.value.StringValue;
 public class CounterCLevelCall extends ExtensionFunctionCall {
     private int counter = 0;
     private int maxCounter;
-    public SequenceIterator call(SequenceIterator[] arguments, XPathContext xPathContext) throws XPathException {
+
+    public Sequence call(XPathContext xPathContext, Sequence[] arguments) throws XPathException {
         count();
-        return (new StringValue("").iterate());
+        return (new StringValue(""));
     }
 
     public void count(){

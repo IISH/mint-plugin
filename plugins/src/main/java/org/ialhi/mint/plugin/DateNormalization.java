@@ -3,10 +3,9 @@ package org.ialhi.mint.plugin;
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.lib.ExtensionFunctionCall;
 import net.sf.saxon.lib.ExtensionFunctionDefinition;
-import net.sf.saxon.om.SequenceIterator;
+import net.sf.saxon.om.Sequence;
 import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.tree.iter.SingletonIterator;
 import net.sf.saxon.value.SequenceType;
 import net.sf.saxon.value.StringValue;
 
@@ -116,19 +115,19 @@ public class DateNormalization extends ExtensionFunctionDefinition {
             this.baseURI = baseURI;
         }
 
-        public SequenceIterator call(SequenceIterator[] arguments, XPathContext xPathContext) throws XPathException {
+        public Sequence call(XPathContext xPathContext, Sequence[] arguments) throws XPathException {
             if (arguments.length == 2) {
 
                 if (!((StringValue)arguments[1]).getStringValue().equals("pl_unitid")) {
                     String out = checkForMainagencycode(((StringValue)arguments[0]).getStringValue());
-                    return SingletonIterator.makeIterator(StringValue.makeStringValue(out));
+                    return StringValue.makeStringValue(out);
                 } else {
                     String out = changePLunitid(((StringValue)arguments[0]).getStringValue());
-                    return SingletonIterator.makeIterator(StringValue.makeStringValue(out));
+                    return StringValue.makeStringValue(out);
                 }
             } else {
                 String out = printNumberTest(((StringValue)arguments[0]).getStringValue());
-                return SingletonIterator.makeIterator(StringValue.makeStringValue(out));
+                return StringValue.makeStringValue(out);
             }
         }
 

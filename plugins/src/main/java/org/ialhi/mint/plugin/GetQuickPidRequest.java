@@ -3,12 +3,9 @@ package org.ialhi.mint.plugin;
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.lib.ExtensionFunctionCall;
 import net.sf.saxon.lib.ExtensionFunctionDefinition;
-import net.sf.saxon.om.Item;
-import net.sf.saxon.om.SequenceIterator;
+import net.sf.saxon.om.Sequence;
 import net.sf.saxon.om.StructuredQName;
 
-import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.tree.iter.SingletonIterator;
 import net.sf.saxon.value.SequenceType;
 import net.sf.saxon.value.StringValue;
 import org.w3c.dom.NodeList;
@@ -60,12 +57,12 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
     public static class GetQuickPidRequestCall extends ExtensionFunctionCall {
 
         @Override
-        public SequenceIterator call(SequenceIterator[] arguments, XPathContext xPathContext) throws XPathException {
-            StringValue na = (StringValue) arguments[0].next();
-            StringValue localIdentifier = (StringValue) arguments[1].next();
-            StringValue uri = (StringValue) arguments[2].next();
+        public Sequence call(XPathContext xPathContext, Sequence[] arguments) {
+            StringValue na = (StringValue) arguments[0];
+            StringValue localIdentifier = (StringValue) arguments[1];
+            StringValue uri = (StringValue) arguments[2];
 
-            String pid = null;
+            String pid;
             try {
                 pid = registerPid(na, localIdentifier, uri);
             } catch (SOAPException e) {
@@ -73,8 +70,7 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             }
 
             pid = "http://hdl.handle.net/" + pid;
-            Item item = new StringValue(pid);
-            return SingletonIterator.makeIterator(item);
+            return StringValue.makeStringValue(pid);
         }
 
         private static String registerPid(StringValue na, StringValue localIdentifier, StringValue uri) throws SOAPException {
@@ -147,7 +143,6 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             hd.addHeader("Authorization", "bearer " + pidKey);
 
             soapMessage.saveChanges();
-            String message = soapBody.getValue();
             return soapMessage;
         }
     }
