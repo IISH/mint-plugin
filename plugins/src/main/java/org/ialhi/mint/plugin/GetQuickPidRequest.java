@@ -8,6 +8,7 @@ import net.sf.saxon.om.StructuredQName;
 
 import net.sf.saxon.value.SequenceType;
 import net.sf.saxon.value.StringValue;
+import net.sf.saxon.trans.XPathException;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Node;
 
@@ -58,29 +59,36 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
 
         @Override
         public Sequence call(XPathContext xPathContext, Sequence[] arguments) {
-            StringValue na = (StringValue) arguments[0];
-            StringValue localIdentifier = (StringValue) arguments[1];
-            StringValue uri = (StringValue) arguments[2];
+            String pid = "";
+            String error = "";
 
-            String pid;
             try {
+                String na = arguments[0].head().getStringValue();
+                String localIdentifier = arguments[1].head().getStringValue();
+                String uri = arguments[2].head().getStringValue();
                 pid = registerPid(na, localIdentifier, uri);
+                pid = "http://hdl.handle.net/" + pid;
+            } catch (XPathException e) {
+                error = "Invalid XPath Expression";
             } catch (SOAPException e) {
-                pid = "Invalid PID";
+                error = "Invalid PID";
             }
 
-            pid = "http://hdl.handle.net/" + pid;
-            return StringValue.makeStringValue(pid);
+            if (error.length() > 0) {
+                return StringValue.makeStringValue(error);
+            } else {
+                return StringValue.makeStringValue(pid);
+            }
         }
 
-        private static String registerPid(StringValue na, StringValue localIdentifier, StringValue uri) throws SOAPException {
+        private static String registerPid(String na, String localIdentifier, String uri) throws SOAPException {
             // Create SOAP Connection
             SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
             SOAPConnection soapConnection = soapConnectionFactory.createConnection();
 
             // Send SOAP Message to SOAP Server
             String url = "https://pid.socialhistoryservices.org/pid.wsdl";
-            SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na.toString(), localIdentifier.toString(), uri.toString()), url);
+            SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na, localIdentifier, uri), url);
 
             SOAPBody soapBody = soapResponse.getSOAPBody();
             NodeList nl = soapBody.getElementsByTagNameNS("http://pid.socialhistoryservices.org/", "pid");
