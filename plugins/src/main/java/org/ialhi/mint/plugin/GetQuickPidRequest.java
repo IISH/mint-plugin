@@ -58,44 +58,43 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
     public static class GetQuickPidRequestCall extends ExtensionFunctionCall {
 
         @Override
-        public Sequence call(XPathContext xPathContext, Sequence[] arguments) {
-            String pid = "";
-            String error = "";
+        public Sequence call(XPathContext xPathContext, Sequence[] arguments) throws XPathException {
+            String pid;
 
-            try {
-                String na = arguments[0].head().getStringValue();
-                String localIdentifier = arguments[1].head().getStringValue();
-                String uri = arguments[2].head().getStringValue();
-                pid = registerPid(na, localIdentifier, uri);
-                pid = "http://hdl.handle.net/" + pid;
-            } catch (XPathException e) {
-                error = "Invalid XPath Expression";
-            } catch (SOAPException e) {
-                error = "Invalid PID";
-            }
+            String na = arguments[0].head().getStringValue();
+            String localIdentifier = arguments[1].head().getStringValue();
+            String uri = arguments[2].head().getStringValue();
+            pid = registerPid(na, localIdentifier, uri);
+            pid = "http://hdl.handle.net/" + pid;
 
-            if (error.length() > 0) {
-                return StringValue.makeStringValue(error);
-            } else {
-                return StringValue.makeStringValue(pid);
-            }
+            return StringValue.makeStringValue(pid);
         }
 
-        private static String registerPid(String na, String localIdentifier, String uri) throws SOAPException {
-            // Create SOAP Connection
-            SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
-            SOAPConnection soapConnection = soapConnectionFactory.createConnection();
+        private static String registerPid(String na, String localIdentifier, String uri) {
+            String pid = null;
+            SOAPConnectionFactory soapConnectionFactory;
 
-            // Send SOAP Message to SOAP Server
-            String url = "https://pid.socialhistoryservices.org/pid.wsdl";
-            SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na, localIdentifier, uri), url);
+            try {
+                soapConnectionFactory = SOAPConnectionFactory.newInstance();
+                SOAPConnection soapConnection = soapConnectionFactory.createConnection();
 
-            SOAPBody soapBody = soapResponse.getSOAPBody();
-            NodeList nl = soapBody.getElementsByTagNameNS("http://pid.socialhistoryservices.org/", "pid");
-            Node node = nl.item(0);
-            String pid = node.getFirstChild().getNodeValue();
+                // Send SOAP Message to SOAP Server
+                String url = "https://pid.socialhistoryservices.org/pid.wsdl";
+                SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na, localIdentifier, uri), url);
 
-            soapConnection.close();
+                SOAPBody soapBody = soapResponse.getSOAPBody();
+                SOAPFault sf = soapBody.getFault();
+                if (sf == null) {
+                    NodeList nl = soapBody.getElementsByTagNameNS("http://pid.socialhistoryservices.org/", "pid");
+                    Node node = nl.item(0);
+                    pid = node.getFirstChild().getNodeValue();
+                } else {
+                    throw new SOAPException(sf.getFaultString());
+                }
+                soapConnection.close();
+            } catch (SOAPException e) {
+                e.printStackTrace();
+            }
 
             return pid;
         }
