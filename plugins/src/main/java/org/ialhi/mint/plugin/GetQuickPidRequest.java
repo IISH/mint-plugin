@@ -5,21 +5,25 @@ import net.sf.saxon.lib.ExtensionFunctionCall;
 import net.sf.saxon.lib.ExtensionFunctionDefinition;
 import net.sf.saxon.om.Sequence;
 import net.sf.saxon.om.StructuredQName;
-
+import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.value.SequenceType;
 import net.sf.saxon.value.StringValue;
-import net.sf.saxon.trans.XPathException;
-import org.w3c.dom.NodeList;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import javax.xml.soap.*;
-import java.io.IOException;
+
 
 public class GetQuickPidRequest extends ExtensionFunctionDefinition {
     private static final StructuredQName qName =
             new StructuredQName("ialhi",
                     "http://www.socialhistoryportal.org/functions",
                     "getQuickPidRequest");
+
+    private static final String PIDWEBSERVICE_APIKEY = System.getProperty("xsltplugin.getquickpidrequest.apikey");
+    private static final String PIDWEBSERVICE_ENDPOINT = System.getProperty("xsltplugin.getquickpidrequest.endpoint", "http://localhost/secure");
+    private static final String HANDLE_RESOLVER = System.getProperty("xsltplugin.getquickpidrequest.handle_resolver", "http://hdl.handle.net/");
+
 
     @Override
     public StructuredQName getFunctionQName() {
@@ -65,7 +69,7 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             String localIdentifier = arguments[1].head().getStringValue();
             String uri = arguments[2].head().getStringValue();
             pid = registerPid(na, localIdentifier, uri);
-            pid = "http://hdl.handle.net/" + pid;
+            pid = HANDLE_RESOLVER + pid;
 
             return StringValue.makeStringValue(pid);
         }
@@ -79,7 +83,7 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
                 SOAPConnection soapConnection = soapConnectionFactory.createConnection();
 
                 // Send SOAP Message to SOAP Server
-                String url = "https://pid.socialhistoryservices.org/pid.wsdl";
+                String url = PIDWEBSERVICE_ENDPOINT + "pid.wsdl";
                 SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na, localIdentifier, uri), url);
 
                 SOAPBody soapBody = soapResponse.getSOAPBody();
@@ -96,6 +100,14 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
                 e.printStackTrace();
             }
 
+            if ( pid == null || pid.isEmpty()) {
+                try {
+                    throw new Exception("The webservice returned an empty PID value.");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
             return pid;
         }
 
@@ -103,24 +115,15 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             MessageFactory messageFactory = MessageFactory.newInstance();
             SOAPMessage soapMessage = messageFactory.createMessage();
             SOAPPart soapPart = soapMessage.getSOAPPart();
-            String pidKey = "";
 
             naValue = naValue.replaceAll("^\"|\"$", "");
             localIdValue = localIdValue.replaceAll("^\"|\"$", "");
             resolveUrlValue = resolveUrlValue.replaceAll("^\"|\"$", "");
 
-            String serverURI = "http://pid.socialhistoryservices.org/";
-
-            PropertyLoader propertyLoader = new PropertyLoader();
-            try {
-                pidKey = propertyLoader.getProperties().getProperty("pidkey");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
 
             // SOAP Envelope
             SOAPEnvelope envelope = soapPart.getEnvelope();
-            envelope.addNamespaceDeclaration("pid", serverURI);
+            envelope.addNamespaceDeclaration("pid", "http://pid.socialhistoryservices.org/");
 
                 /*
                 Constructed SOAP Request Message:
@@ -147,7 +150,7 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             resolveUrl.addTextNode(resolveUrlValue);
 
             MimeHeaders hd = soapMessage.getMimeHeaders();
-            hd.addHeader("Authorization", "bearer " + pidKey);
+            hd.addHeader("Authorization", "bearer " + PIDWEBSERVICE_APIKEY);
 
             soapMessage.saveChanges();
             return soapMessage;
