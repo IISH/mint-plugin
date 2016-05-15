@@ -20,10 +20,6 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
                     "http://www.socialhistoryportal.org/functions",
                     "getQuickPidRequest");
 
-    private static final String PIDWEBSERVICE_APIKEY = System.getProperty("xsltplugin.getquickpidrequest.apikey");
-    private static final String PIDWEBSERVICE_ENDPOINT = System.getProperty("xsltplugin.getquickpidrequest.endpoint", "http://localhost/secure");
-    private static final String HANDLE_RESOLVER = System.getProperty("xsltplugin.getquickpidrequest.handle_resolver", "http://hdl.handle.net/");
-
 
     @Override
     public StructuredQName getFunctionQName() {
@@ -69,7 +65,7 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             String localIdentifier = arguments[1].head().getStringValue();
             String uri = arguments[2].head().getStringValue();
             pid = registerPid(na, localIdentifier, uri);
-            pid = HANDLE_RESOLVER + pid;
+            pid = getHandleResolver() + pid;
 
             return StringValue.makeStringValue(pid);
         }
@@ -83,7 +79,7 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
                 SOAPConnection soapConnection = soapConnectionFactory.createConnection();
 
                 // Send SOAP Message to SOAP Server
-                String url = PIDWEBSERVICE_ENDPOINT + "pid.wsdl";
+                String url = getPidWebserviceEndpoint() + "pid.wsdl";
                 SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na, localIdentifier, uri), url);
 
                 SOAPBody soapBody = soapResponse.getSOAPBody();
@@ -150,10 +146,22 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             resolveUrl.addTextNode(resolveUrlValue);
 
             MimeHeaders hd = soapMessage.getMimeHeaders();
-            hd.addHeader("Authorization", "bearer " + PIDWEBSERVICE_APIKEY);
+            hd.addHeader("Authorization", "bearer " + getPidWebserviceApiKey());
 
             soapMessage.saveChanges();
             return soapMessage;
+        }
+
+        private static String getHandleResolver() {
+            return System.getProperty("xsltplugin.getquickpidrequest.handle_resolver", "http://hdl.handle.net/");
+        }
+
+        private static String getPidWebserviceApiKey() {
+            return System.getProperty("xsltplugin.getquickpidrequest.apikey");
+        }
+
+        private static String getPidWebserviceEndpoint() {
+            return System.getProperty("xsltplugin.getquickpidrequest.endpoint", "http://localhost/secure");
         }
     }
 }
