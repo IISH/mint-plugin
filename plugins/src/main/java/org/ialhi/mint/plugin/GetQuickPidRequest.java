@@ -12,6 +12,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import javax.xml.soap.*;
+import java.util.LinkedHashMap;
 
 
 public class GetQuickPidRequest extends ExtensionFunctionDefinition {
@@ -19,6 +20,19 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
             new StructuredQName("ialhi",
                     "http://www.socialhistoryportal.org/functions",
                     "getQuickPidRequest");
+
+    private static int CACHE_LIMIT = 50;
+
+    /**
+     * cache
+     * <p>
+     * Remembers a number of responses. The total is determined by CACHE_LIMIT.
+     * Once reached, the cache is cleared.
+     * <p>
+     * The key-value for:
+     * na:localIdentifier:uri and the pid (na/identifier)
+     */
+    private static LinkedHashMap<String, String> cache = new LinkedHashMap<>(CACHE_LIMIT);
 
 
     @Override
@@ -59,67 +73,73 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
 
         @Override
         public Sequence call(XPathContext xPathContext, Sequence[] arguments) throws XPathException {
-            String pid;
 
-            String na = arguments[0].head().getStringValue();
-            String localIdentifier = arguments[1].head().getStringValue();
-            String uri = arguments[2].head().getStringValue();
-            pid = registerPid(na, localIdentifier, uri);
-            pid = getHandleResolver() + pid;
+            final String na = arguments[0].head().getStringValue();
+            final String localIdentifier = arguments[1].head().getStringValue();
+            final String uri = arguments[2].head().getStringValue();
+            final String pid = registerPid(na, localIdentifier, uri);
+            return StringValue.makeStringValue(getHandleResolver() + pid);
+        }
+    }
 
-            return StringValue.makeStringValue(pid);
+    private static String registerPid(String na, String localIdentifier, String uri) {
+
+        final String key = na + ":" + localIdentifier + ":" + uri;
+        if (cache.containsKey(key))
+            return cache.get(key);
+
+        String pid = null;
+        try {
+            final SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
+            SOAPConnection soapConnection = soapConnectionFactory.createConnection();
+
+            // Send SOAP Message to SOAP Server
+            String url = getPidWebserviceEndpoint() + "pid.wsdl";
+            SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na, localIdentifier, uri), url);
+
+            SOAPBody soapBody = soapResponse.getSOAPBody();
+            SOAPFault sf = soapBody.getFault();
+            if (sf == null) {
+                NodeList nl = soapBody.getElementsByTagNameNS("http://pid.socialhistoryservices.org/", "pid");
+                Node node = nl.item(0);
+                pid = node.getFirstChild().getNodeValue();
+            } else {
+                throw new SOAPException(sf.getFaultString());
+            }
+            soapConnection.close();
+        } catch (SOAPException e) {
+            e.printStackTrace();
         }
 
-        private static String registerPid(String na, String localIdentifier, String uri) {
-            String pid = null;
-            SOAPConnectionFactory soapConnectionFactory;
-
+        if (pid == null || pid.isEmpty()) {
             try {
-                soapConnectionFactory = SOAPConnectionFactory.newInstance();
-                SOAPConnection soapConnection = soapConnectionFactory.createConnection();
-
-                // Send SOAP Message to SOAP Server
-                String url = getPidWebserviceEndpoint() + "pid.wsdl";
-                SOAPMessage soapResponse = soapConnection.call(createSOAPRequest(na, localIdentifier, uri), url);
-
-                SOAPBody soapBody = soapResponse.getSOAPBody();
-                SOAPFault sf = soapBody.getFault();
-                if (sf == null) {
-                    NodeList nl = soapBody.getElementsByTagNameNS("http://pid.socialhistoryservices.org/", "pid");
-                    Node node = nl.item(0);
-                    pid = node.getFirstChild().getNodeValue();
-                } else {
-                    throw new SOAPException(sf.getFaultString());
-                }
-                soapConnection.close();
-            } catch (SOAPException e) {
+                throw new Exception("The webservice returned an empty PID value.");
+            } catch (Exception e) {
                 e.printStackTrace();
             }
-
-            if ( pid == null || pid.isEmpty()) {
-                try {
-                    throw new Exception("The webservice returned an empty PID value.");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+        } else {
+            if (cache.size() >= CACHE_LIMIT) {
+                cache.remove(cache.keySet().iterator().next()); // remove the first entry.
             }
-
-            return pid;
+            cache.put(key, pid);
         }
 
-        private static SOAPMessage createSOAPRequest(String naValue, String localIdValue, String resolveUrlValue) throws SOAPException {
-            MessageFactory messageFactory = MessageFactory.newInstance();
-            SOAPMessage soapMessage = messageFactory.createMessage();
-            SOAPPart soapPart = soapMessage.getSOAPPart();
+        return pid;
+    }
 
-            naValue = naValue.replaceAll("^\"|\"$", "");
-            localIdValue = localIdValue.replaceAll("^\"|\"$", "");
-            resolveUrlValue = resolveUrlValue.replaceAll("^\"|\"$", "");
+    private static SOAPMessage createSOAPRequest(String naValue, String localIdValue, String resolveUrlValue) throws SOAPException {
+        MessageFactory messageFactory = MessageFactory.newInstance();
+        SOAPMessage soapMessage = messageFactory.createMessage();
+        SOAPPart soapPart = soapMessage.getSOAPPart();
+
+        naValue = naValue.replaceAll("^\"|\"$", "");
+        localIdValue = localIdValue.replaceAll("^\"|\"$", "");
+        resolveUrlValue = resolveUrlValue.replaceAll("^\"|\"$", "");
 
 
-            // SOAP Envelope
-            SOAPEnvelope envelope = soapPart.getEnvelope();
-            envelope.addNamespaceDeclaration("pid", "http://pid.socialhistoryservices.org/");
+        // SOAP Envelope
+        SOAPEnvelope envelope = soapPart.getEnvelope();
+        envelope.addNamespaceDeclaration("pid", "http://pid.socialhistoryservices.org/");
 
                 /*
                 Constructed SOAP Request Message:
@@ -135,33 +155,32 @@ public class GetQuickPidRequest extends ExtensionFunctionDefinition {
                 </soapenv:Envelope>
                  */
 
-            // SOAP Body
-            SOAPBody soapBody = envelope.getBody();
-            SOAPElement getQuickPidRequest = soapBody.addChildElement("GetQuickPidRequest", "pid");
-            SOAPElement na = getQuickPidRequest.addChildElement("na", "pid");
-            na.addTextNode(naValue);
-            SOAPElement localIdentifier = getQuickPidRequest.addChildElement("localIdentifier", "pid");
-            localIdentifier.addTextNode(localIdValue);
-            SOAPElement resolveUrl = getQuickPidRequest.addChildElement("resolveUrl", "pid");
-            resolveUrl.addTextNode(resolveUrlValue);
+        // SOAP Body
+        SOAPBody soapBody = envelope.getBody();
+        SOAPElement getQuickPidRequest = soapBody.addChildElement("GetQuickPidRequest", "pid");
+        SOAPElement na = getQuickPidRequest.addChildElement("na", "pid");
+        na.addTextNode(naValue);
+        SOAPElement localIdentifier = getQuickPidRequest.addChildElement("localIdentifier", "pid");
+        localIdentifier.addTextNode(localIdValue);
+        SOAPElement resolveUrl = getQuickPidRequest.addChildElement("resolveUrl", "pid");
+        resolveUrl.addTextNode(resolveUrlValue);
 
-            MimeHeaders hd = soapMessage.getMimeHeaders();
-            hd.addHeader("Authorization", "bearer " + getPidWebserviceApiKey());
+        MimeHeaders hd = soapMessage.getMimeHeaders();
+        hd.addHeader("Authorization", "bearer " + getPidWebserviceApiKey());
 
-            soapMessage.saveChanges();
-            return soapMessage;
-        }
+        soapMessage.saveChanges();
+        return soapMessage;
+    }
 
-        private static String getHandleResolver() {
-            return System.getProperty("xsltplugin.getquickpidrequest.handle_resolver", "http://hdl.handle.net/");
-        }
+    private static String getHandleResolver() {
+        return System.getProperty("xsltplugin.getquickpidrequest.handle_resolver", "http://hdl.handle.net/");
+    }
 
-        private static String getPidWebserviceApiKey() {
-            return System.getProperty("xsltplugin.getquickpidrequest.apikey");
-        }
+    private static String getPidWebserviceApiKey() {
+        return System.getProperty("xsltplugin.getquickpidrequest.apikey");
+    }
 
-        private static String getPidWebserviceEndpoint() {
-            return System.getProperty("xsltplugin.getquickpidrequest.endpoint", "http://localhost/secure");
-        }
+    private static String getPidWebserviceEndpoint() {
+        return System.getProperty("xsltplugin.getquickpidrequest.endpoint", "http://localhost/secure");
     }
 }
